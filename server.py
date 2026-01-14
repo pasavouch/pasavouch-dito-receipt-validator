@@ -51,8 +51,8 @@ def validate_format():
         img_blur = cv2.GaussianBlur(img_resized, (5, 5), 0)
 
         # core receipt area (cropped allowed)
-        y1, y2 = int(h_ref * 0.25), int(h_ref * 0.80)
-        x1, x2 = int(w_ref * 0.20), int(w_ref * 0.80)
+        y1, y2 = int(h_ref * 0.18), int(h_ref * 0.82)
+        x1, x2 = int(w_ref * 0.10), int(w_ref * 0.90)
 
         ref_crop = ref_blur[y1:y2, x1:x2]
         img_crop = img_blur[y1:y2, x1:x2]
