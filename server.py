@@ -2,32 +2,33 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import cv2
 import numpy as np
-from skimage.metrics import structural_similarity as ssim
 import os
 
 app = Flask(__name__)
 CORS(app)
 
+# Setup base directory and template path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 TEMPLATE_PATH = os.path.join(BASE_DIR, "template_dito_receipt_v1.jpg")
+
+# Load reference image in grayscale
 REF_IMG = cv2.imread(TEMPLATE_PATH, cv2.IMREAD_GRAYSCALE)
 
 if REF_IMG is None:
-    raise RuntimeError("DITO template not found")
+    raise RuntimeError("DITO template not found. Please ensure the file exists.")
 
-ASPECT_TOL = 0.25
-DIFF_LIMIT = 55
-EDGE_LIMIT = 28
-SSIM_THRESHOLD = 0.68
+# Threshold for template matching (0.0 to 1.0)
+# 0.65 is a good balance for mobile screenshots
+MATCH_THRESHOLD = 0.65
 
 @app.route("/validate-format", methods=["POST"])
 def validate_format():
-
+    # Check if image part exists in request
     if "image" not in request.files:
         return jsonify({"ok": False, "reason": "NO_IMAGE"})
 
     try:
+        # Read the uploaded image from the request
         file = request.files["image"]
         img_bytes = np.frombuffer(file.read(), np.uint8)
         img = cv2.imdecode(img_bytes, cv2.IMREAD_GRAYSCALE)
@@ -35,58 +36,39 @@ def validate_format():
         if img is None:
             return jsonify({"ok": False, "reason": "IMAGE_READ_ERROR"})
 
+        # Get dimensions to ensure template is not larger than the uploaded image
         h_ref, w_ref = REF_IMG.shape
         h_img, w_img = img.shape
 
-        ratio_ref = w_ref / h_ref
-        ratio_img = w_img / h_img
+        if h_ref > h_img or w_ref > w_img:
+            # If template is larger, we try to resize the reference down slightly 
+            # or reject if the upload is too small/low quality
+            return jsonify({"ok": False, "reason": "UPLOAD_TOO_SMALL"})
 
-        # landscape only
-        if abs(ratio_ref - ratio_img) > ASPECT_TOL:
-            return jsonify({"ok": False, "reason": "NOT_LANDSCAPE"})
+        # Perform Template Matching
+        # This searches for the REF_IMG pattern inside the uploaded img
+        res = cv2.matchTemplate(img, REF_IMG, cv2.TM_CCOEFF_NORMED)
+        
+        # Extract the highest similarity score found
+        _, max_val, _, _ = cv2.minMaxLoc(res)
+        score = round(float(max_val), 2)
 
-        img_resized = cv2.resize(img, (w_ref, h_ref))
-
-        ref_blur = cv2.GaussianBlur(REF_IMG, (7, 7), 0)
-        img_blur = cv2.GaussianBlur(img_resized, (7, 7), 0)
-
-        # core receipt area (cropped allowed)
-        y1, y2 = int(h_ref * 0.18), int(h_ref * 0.82)
-        x1, x2 = int(w_ref * 0.10), int(w_ref * 0.90)
-
-        ref_crop = ref_blur[y1:y2, x1:x2]
-        img_crop = img_blur[y1:y2, x1:x2]
-
-        # detect UI / overlay / drawings
-        edges = cv2.Canny(img_crop, 60, 160)
-        if edges.mean() > EDGE_LIMIT:
-            return jsonify({"ok": False, "reason": "UI_OR_OVERLAY_DETECTED"})
-
-        # heavy layout change (history list / multiple rows)
-        diff = cv2.absdiff(ref_crop, img_crop).mean()
-        if diff > DIFF_LIMIT:
-            return jsonify({"ok": False, "reason": "MULTI_TRANSACTION_OR_HISTORY"})
-
-        # layout-only structure similarity (TEXT SUPPRESSED)
-        ref_layout = cv2.Canny(cv2.GaussianBlur(ref_crop, (11, 11), 0), 40, 120)
-        img_layout = cv2.Canny(cv2.GaussianBlur(img_crop, (11, 11), 0), 40, 120)
-
-        score, _ = ssim(ref_layout, img_layout, full=True)
-        score = round(score, 2)
-
-        if score < SSIM_THRESHOLD:
+        # Validate against our threshold
+        if score < MATCH_THRESHOLD:
             return jsonify({
-                "ok": False,
+                "ok": False, 
                 "reason": "FORMAT_MISMATCH",
                 "similarity": score
             })
 
+        # If successful, return the similarity score
         return jsonify({
             "ok": True,
             "similarity": score
         })
 
     except Exception as e:
+        # Return system error for debugging
         return jsonify({
             "ok": False,
             "reason": "SYSTEM_ERROR",
@@ -94,4 +76,5 @@ def validate_format():
         })
 
 if __name__ == "__main__":
+    # Run the server
     app.run(host="0.0.0.0", port=5000)
