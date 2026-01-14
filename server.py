@@ -16,10 +16,10 @@ REF_IMG = cv2.imread(TEMPLATE_PATH, cv2.IMREAD_GRAYSCALE)
 if REF_IMG is None:
     raise RuntimeError("DITO template not found")
 
-ASPECT_TOL = 0.15
-DIFF_LIMIT = 35
-EDGE_LIMIT = 18
-SSIM_THRESHOLD = 0.78
+ASPECT_TOL = 0.25
+DIFF_LIMIT = 55
+EDGE_LIMIT = 28
+SSIM_THRESHOLD = 0.72
 
 @app.route("/validate-format", methods=["POST"])
 def validate_format():
