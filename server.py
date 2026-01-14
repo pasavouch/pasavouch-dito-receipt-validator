@@ -19,7 +19,7 @@ if REF_IMG is None:
 ASPECT_TOL = 0.25
 DIFF_LIMIT = 55
 EDGE_LIMIT = 28
-SSIM_THRESHOLD = 0.72
+SSIM_THRESHOLD = 0.68
 
 @app.route("/validate-format", methods=["POST"])
 def validate_format():
@@ -47,8 +47,8 @@ def validate_format():
 
         img_resized = cv2.resize(img, (w_ref, h_ref))
 
-        ref_blur = cv2.GaussianBlur(REF_IMG, (5, 5), 0)
-        img_blur = cv2.GaussianBlur(img_resized, (5, 5), 0)
+        ref_blur = cv2.GaussianBlur(REF_IMG, (7, 7), 0)
+        img_blur = cv2.GaussianBlur(img_resized, (7, 7), 0)
 
         # core receipt area (cropped allowed)
         y1, y2 = int(h_ref * 0.18), int(h_ref * 0.82)
@@ -58,7 +58,7 @@ def validate_format():
         img_crop = img_blur[y1:y2, x1:x2]
 
         # detect UI / overlay / drawings
-        edges = cv2.Canny(img_crop, 80, 200)
+        edges = cv2.Canny(img_crop, 60, 160)
         if edges.mean() > EDGE_LIMIT:
             return jsonify({"ok": False, "reason": "UI_OR_OVERLAY_DETECTED"})
 
@@ -67,11 +67,11 @@ def validate_format():
         if diff > DIFF_LIMIT:
             return jsonify({"ok": False, "reason": "MULTI_TRANSACTION_OR_HISTORY"})
 
-        # structure similarity
-        ref_edge = cv2.Canny(ref_crop, 80, 200)
-        img_edge = cv2.Canny(img_crop, 80, 200)
+        # layout-only structure similarity (TEXT SUPPRESSED)
+        ref_layout = cv2.Canny(cv2.GaussianBlur(ref_crop, (11, 11), 0), 40, 120)
+        img_layout = cv2.Canny(cv2.GaussianBlur(img_crop, (11, 11), 0), 40, 120)
 
-        score, _ = ssim(ref_edge, img_edge, full=True)
+        score, _ = ssim(ref_layout, img_layout, full=True)
         score = round(score, 2)
 
         if score < SSIM_THRESHOLD:
