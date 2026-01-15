@@ -24,19 +24,22 @@ def validate_format():
         # Get image dimensions
         h_img, w_img = img.shape
 
+        # Must be landscape (cropped transaction view)
+        if w_img <= h_img:
+            return jsonify({"ok": False, "reason": "INVALID_ORIENTATION"})
+
         # Minimum size check
-        # Blocks thumbnails and icons
-        if w_img < 800 or h_img < 250:
+        # Prevents icons, thumbnails, overly aggressive crops
+        if w_img < 600 or h_img < 200:
             return jsonify({"ok": False, "reason": "IMAGE_TOO_SMALL"})
 
         # Aspect ratio check
-        # Single transaction view is wide, not tall
+        # Cropped transaction views are wide but not extreme
         aspect_ratio = w_img / h_img
-
-        if aspect_ratio < 2.5 or aspect_ratio > 6.5:
+        if aspect_ratio < 2.0 or aspect_ratio > 7.0:
             return jsonify({"ok": False, "reason": "INVALID_LAYOUT"})
 
-        # If all checks pass, allow OCR stage
+        # Passed format validation
         return jsonify({
             "ok": True,
             "width": w_img,
