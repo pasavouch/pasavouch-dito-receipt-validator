@@ -21,6 +21,10 @@ if REF_IMG is None:
 # 0.65 is a good balance for mobile screenshots
 MATCH_THRESHOLD = 0.65
 
+# Height tolerance for portrait receipts
+# Allows slightly shorter images while still blocking landscape/history views
+HEIGHT_TOLERANCE = 0.80
+
 @app.route("/validate-format", methods=["POST"])
 def validate_format():
     # Check if image part exists in request
@@ -40,9 +44,8 @@ def validate_format():
         h_ref, w_ref = REF_IMG.shape
         h_img, w_img = img.shape
 
-        if h_ref > h_img or w_ref > w_img:
-            # If template is larger, we try to resize the reference down slightly 
-            # or reject if the upload is too small/low quality
+        if h_img < int(h_ref * HEIGHT_TOLERANCE) or w_ref > w_img:
+            # Reject if image is too short or too narrow
             return jsonify({"ok": False, "reason": "UPLOAD_TOO_SMALL"})
 
         # Perform Template Matching
