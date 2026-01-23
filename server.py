@@ -24,27 +24,30 @@ def validate_format():
         # Get image dimensions
         h_img, w_img = img.shape
 
-        # Must be landscape (cropped transaction view)
-        if w_img <= h_img:
-            return jsonify({"ok": False, "reason": "INVALID_ORIENTATION"})
+        # Orientation check: Must be Portrait (height > width)
+        # This blocks landscape or wide-cropped transaction views
+        if h_img <= w_img:
+            return jsonify({"ok": False, "reason": "NOT_PORTRAIT_ORIENTATION"})
 
-        # Minimum size check
-        # Prevents icons, thumbnails, overly aggressive crops
-        if w_img < 600 or h_img < 200:
+        # Minimum size check for full-screen screenshots
+        # Ensures the image is high-resolution enough for verification
+        if h_img < 800 or w_img < 300:
             return jsonify({"ok": False, "reason": "IMAGE_TOO_SMALL"})
 
-        # Aspect ratio check
-        # Cropped transaction views are wide but not extreme
+        # Aspect ratio check for mobile screens (Width / Height)
+        # Typical portrait mobile screens are between 0.45 and 0.65
         aspect_ratio = w_img / h_img
-        if aspect_ratio < 2.0 or aspect_ratio > 7.0:
-            return jsonify({"ok": False, "reason": "INVALID_LAYOUT"})
+        if aspect_ratio > 0.8: 
+            # If ratio > 0.8, the image is too "square" to be a standard portrait screenshot
+            return jsonify({"ok": False, "reason": "INVALID_PORTRAIT_RATIO"})
 
-        # Passed format validation
+        # Passed portrait format validation
         return jsonify({
             "ok": True,
             "width": w_img,
             "height": h_img,
-            "ratio": round(aspect_ratio, 2)
+            "ratio": round(aspect_ratio, 2),
+            "mode": "PORTRAIT"
         })
 
     except Exception as e:
