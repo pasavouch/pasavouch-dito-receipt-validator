@@ -24,21 +24,20 @@ def validate_format():
         # Get image dimensions
         h_img, w_img = img.shape
 
-        # Orientation check: Must be Portrait (height > width)
-        # This blocks landscape or wide-cropped transaction views
+        # 1. Orientation check: Must be Portrait (Height > Width)
+        # Haharangin nito ang mga landscape o pabalagbag na kuha.
         if h_img <= w_img:
             return jsonify({"ok": False, "reason": "NOT_PORTRAIT_ORIENTATION"})
 
-        # Minimum size check for full-screen screenshots
-        # Ensures the image is high-resolution enough for verification
-        if h_img < 800 or w_img < 300:
+        # 2. Minimum size check: Binabaan sa 650px para sa sobrang liliit na phone
+        # Sapat pa rin ito para mabasa ng Google Vision ang Transaction No.
+        if h_img < 650 or w_img < 280:
             return jsonify({"ok": False, "reason": "IMAGE_TOO_SMALL"})
 
-        # Aspect ratio check for mobile screens (Width / Height)
-        # Typical portrait mobile screens are between 0.45 and 0.65
+        # 3. Aspect ratio check: Ginawang 0.95 ang limit
+        # Para hindi na ma-reject ang mga tablets o lumang model ng phone.
         aspect_ratio = w_img / h_img
-        if aspect_ratio > 0.8: 
-            # If ratio > 0.8, the image is too "square" to be a standard portrait screenshot
+        if aspect_ratio > 0.95: 
             return jsonify({"ok": False, "reason": "INVALID_PORTRAIT_RATIO"})
 
         # Passed portrait format validation
@@ -59,5 +58,5 @@ def validate_format():
         })
 
 if __name__ == "__main__":
-    # Run the server
+    # Run the server on port 5000
     app.run(host="0.0.0.0", port=5000)
