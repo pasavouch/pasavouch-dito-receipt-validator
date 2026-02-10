@@ -16,28 +16,29 @@ def validate_format():
         # Read the uploaded image from the request
         file = request.files["image"]
         img_bytes = np.frombuffer(file.read(), np.uint8)
-        img = cv2.imdecode(img_bytes, cv2.IMREAD_GRAYSCALE)
+        # Use IMREAD_COLOR to better handle high-res mobile metadata
+        img = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
 
         if img is None:
             return jsonify({"ok": False, "reason": "IMAGE_READ_ERROR"})
 
         # Get image dimensions
-        h_img, w_img = img.shape
+        h_img, w_img = img.shape[:2]
 
-        # 1. Orientation check: Must be Portrait (Height > Width)
-        # Haharangin nito ang mga landscape o pabalagbag na kuha.
-        if h_img <= w_img:
+        # 1. Orientation check: Height must be greater than Width
+        # Added tolerance for mobile devices with odd native resolutions
+        if h_img < w_img:
             return jsonify({"ok": False, "reason": "NOT_PORTRAIT_ORIENTATION"})
 
-        # 2. Minimum size check: Binabaan sa 650px para sa sobrang liliit na phone
-        # Sapat pa rin ito para mabasa ng Google Vision ang Transaction No.
-        if h_img < 650 or w_img < 280:
+        # 2. Minimum size check: Validated for small or low-end devices
+        # Ensures enough pixels for OCR to read Transaction Numbers
+        if h_img < 600 or w_img < 250:
             return jsonify({"ok": False, "reason": "IMAGE_TOO_SMALL"})
 
-        # 3. Aspect ratio check: Ginawang 0.95 ang limit
-        # Para hindi na ma-reject ang mga tablets o lumang model ng phone.
+        # 3. Aspect ratio check: Increased limit to 1.0
+        # Prevents rejection of square-ish shots from Redmi/Tablets
         aspect_ratio = w_img / h_img
-        if aspect_ratio > 0.95: 
+        if aspect_ratio > 1.0: 
             return jsonify({"ok": False, "reason": "INVALID_PORTRAIT_RATIO"})
 
         # Passed portrait format validation
